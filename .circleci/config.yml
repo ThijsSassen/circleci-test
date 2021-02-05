@@ -1,0 +1,96 @@
+version: 2.1
+
+# ---- original attempt -----
+#install:
+#  linux: &linux
+#    - run: echo 'Linux specific command'
+#  windows: &windows
+#    - run: echo 'Windows specific command'
+#
+#script: &script
+#  - run: echo 'Hello World!'
+#
+#jobs:
+#  build-windows:
+#    executor:
+#      name: win/default
+#      shell: bash.exe
+#    steps:
+#      - <<: *windows
+#      - <<: *script
+#  build-linux:
+#    docker:
+#      - image: ubuntu:20.04
+#    steps:
+#      - <<: *linux
+#      - <<: *script
+#
+#workflows:
+#  build:
+#    jobs:
+#    - build-windows
+#    - build-linux
+# ---- original attempt -----
+
+# Convenient way to share build parameters accross targets
+build_parameters: &build_parameters
+  arch:
+    type: string
+    default: x86_64
+  build_type:
+    type: enum
+    default: "Debug"
+    enum: [ "Debug", "Release" ]
+
+executors:
+  ubuntu:
+    parameters:
+      <<: *build_parameters
+    environment:
+      ARCH: << parameters.arch >>
+      BUILD_TYPE: << parameters.build_type >>
+    docker:
+      - image: ubuntu:20.04
+  macos:
+    parameters:
+      <<: *build_parameters
+    environment:
+      ARCH: << parameters.arch >>
+      BUILD_TYPE: << parameters.build_type >>
+    macos:
+      xcode: 11.3.0
+  windows:
+    parameters:
+      <<: *build_parameters
+    environment:
+      ARCH: << parameters.arch >>
+      BUILD_TYPE: << parameters.build_type >>
+    machine:
+      image: "windows-server-2019-vs2019:stable"
+      resource_class: "windows.medium"
+      shell: bash.exe
+
+jobs:
+  build:
+    parameters:
+      target:
+        type: executor
+    executor: << parameters.target >>
+    steps:
+      - run: echo "Build steps for ${BUILD_TYPE} build on ${ARCH}"
+
+workflows:
+  build:
+    jobs:
+      - build:
+          name: "Ubuntu 20.04 Debug"
+          target: { name: ubuntu }
+      - build:
+          name: "Ubuntu 20.04 Release"
+          target: { name: ubuntu, build_type: Release }
+      - build:
+          name: "Windows 2019 Debug"
+          target: { name: windows }
+      - build:
+          name: "macOS 11.3.0"
+          target: { name: macos }
